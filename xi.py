@@ -1,11 +1,14 @@
-import copy, os
+import copy, getopt, os, sys
+from lib import move
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import pygame
 from pygame import Surface
 
-debug=1
-
+debug=1 if "-d" in sys.argv else 0
+run=1
 if debug: print "Starting Xi..."
-#Config
+
+#general config
 size=600
 wsize=(size,size)
 selected=""
@@ -13,7 +16,58 @@ moves=[]
 bestcolour=(250,186,218,8)
 valid_coords=[]
 turn=0
+cellsize=size/6
 
+#AI match config
+fullai=0
+aiblack=""
+aiwhite=""
+matches=1
+pause=0
+
+#Options and parameters
+
+try:
+  opts, args=getopt.getopt(sys.argv[1:],"w:b:n:p:d", ["help"])
+  for i in opts:
+    val=i[1]
+    if "--help" in i:
+      print """
+      
+      -d      debug
+      -b      name of AI for black player (string)
+      -w      name of AI for white player (string)
+      ---For AI vs AI matches---
+      -n      number of matches (default 1)
+      -p      pause between moves (ms, default 0)
+      """
+      run=0
+      
+    if "-w" in i:
+      if debug: print "selecting %s for white AI"%val
+      try:
+        exec("from ai import %s"%val)
+        exec("aiwhite=%s.ai('w')"%val)
+      except:
+        run=0
+        if debug: print "Error loading %s AI for white"%val
+    if "-b" in i:
+      if debug: print "selecting %s for black AI"%val
+      try:
+        exec("from ai import %s"%val)
+        exec("aiwhite=%s.ai('w')"%val)
+      except:
+        run=0
+        if debug: print "Error loading %s AI for black"%val
+    if "-n" in i:
+      pass #configure number of rounds
+    if "-p" in i:
+      pass #configure turn pause
+    
+except getopt.GetoptError as err:
+  print str(err)
+  run=0
+  
 #Pygame stuff
 if debug: print "Initializing pygame...",
 pygame.init()
@@ -25,7 +79,6 @@ if debug: print "  [OK]"
 
 #Load resources
 if debug: print "Loading resources...",
-cellsize=size/6
 for i in os.listdir('img'):
   name=i.replace('.png','')
   imgsize=",(%i,%i))"%(cellsize,cellsize)
@@ -34,13 +87,7 @@ for i in os.listdir('img'):
   #exec(name+'_rect='+name+'.get_rect()') #haha get rekt
 if debug: print "  [OK]"
 
-#Game data
-#Pieces:
-#T -> san
-#. -> aon
-#: -> khoyor
-#/ -> ska
-
+#initialize board
 if debug: print "Initializing board...",
 lineup=["aon","khoyor","ska","ska","khoyor","aon"]
 
@@ -58,45 +105,9 @@ for i in (0,2,4):
 #Selection square
 sel=pygame.Surface((cellsize,cellsize), pygame.SRCALPHA)
 sel.fill(bestcolour)
+if debug: print "  [OK]"
 
-#functions
-def possible_moves(c):
-  """
-  Draws arrows with the possible moves for a clicked piece
-  """
-
-  piece=board[c[1]][c[0]]
-  piececolour,piecetype=piece.split('_')
-
-  #Check adjacent squares for aons
-  if piecetype=="aon":
-    valid_coords=[[c[0]+1,c[1]],[c[0]-1,c[1]],[c[0],c[1]+1],[c[0],c[1]-1]]
-
-  #Check squares 2 away for khoyors
-  elif piecetype=="khoyor":
-    valid_coords=[[c[0]+2,c[1]],[c[0]-2,c[1]],[c[0],c[1]+2],[c[0],c[1]-2]]
-
-  #Check diagonal squares for skas
-  elif piecetype=="ska":
-    valid_coords=[[c[0]+1,c[1]+1],[c[0]-1,c[1]-1],[c[0]+1,c[1]-1],[c[0]-1,c[1]+1]]
-
-  #Chcek square in front and jokes for sans
-  elif piecetype=="san":
-    if piececolour=='b':
-      valid_coords=[[c[0],c[1]-1]]
-    if piececolour=='w':
-      valid_coords=[[c[0],c[1]+1]]
-
-  #Remove invalid coords
-  valid_coords=[i for i in valid_coords if all(j>=0 and j<6 for j in i)]
-  valid_coords=[i for i in valid_coords if not board[i[1]][i[0]].startswith(piececolour)]
-  
-  #Draw line
-  pc=lambda x: x*cellsize+cellsize/2 #coordinates of the centre of the cell
-  lsc=(pc(c[0]),pc(c[1])) #line start coordinates
-  lec=[[pc(i[0]),pc(i[1])] for i in valid_coords] #line end coordinates
-  return [valid_coords,[lsc,lec]]
-
+#misc functions
 def movepiece(a,b):
   piece=board[a[1]][a[0]]
   board[a[1]][a[0]]=""
@@ -125,8 +136,8 @@ def checkgame():
   return 0
 
 #Main loop
-if debug: print "  [OK]\nEntering main loop\n---\nBlack moves"
-run=1
+if debug and run: print "Entering main loop\n---\nBlack moves"
+if debug and not run: print "Skipping main loop"
 while run:
   #Draw board
   screen.blit(bg,(0,0))
@@ -166,7 +177,12 @@ while run:
         if debug: print "clicked "+piece+" at "+str(coords)
         selected=[coords[0]*cellsize,coords[1]*cellsize]
         origin=coords
-        valid_coords,moves=possible_moves(coords)
+        valid_coords=move.possible_moves(board,coords)
+        #Calculate line parameters
+        pc=lambda x: x*cellsize+cellsize/2 #coordinates of the centre of the cell
+        lsc=(pc(coords[0]),pc(coords[1])) #line start coordinates
+        lec=[[pc(i[0]),pc(i[1])] for i in valid_coords] #line end coordinates
+        moves=[lsc,lec]
       elif coords[1]==5 and not turn:
         board[coords[1]][coords[0]]="b_san"
         turn=not turn
@@ -187,8 +203,8 @@ while run:
   #Victory check
   cg=checkgame()
   if cg!=0:
-    if cg==1 and debug: print "Black wins",
-    if cg==-1 and debug: print "White wins",
+    if cg==1 and debug: print "Black wins,",
+    if cg==-1 and debug: print "White wins,",
     if debug: print "exiting"
     run=0
 
