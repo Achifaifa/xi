@@ -7,6 +7,7 @@ class ai():
   AI that moves pieces at random
   """
 
+  name="headless"
   author="Yuri"
   comment=""
 
