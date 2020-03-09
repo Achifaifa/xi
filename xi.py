@@ -55,7 +55,7 @@ try:
       if debug: print "selecting %s for black AI"%val
       try:
         exec("from ai import %s"%val)
-        exec("aiwhite=%s.ai('b')"%val)
+        exec("aiblack=%s.ai('b')"%val)
       except:
         run=0
         if debug: print "Error loading %s AI for black"%val
@@ -166,7 +166,8 @@ while run:
       piece=board[coords[1]][coords[0]]
       piececolour=['b','w',''].index(piece.split('_')[0])
       allowed=1
-      if ((aiwhite and piececolour==1) or (aiblack and piececolour==0)) and not selected: allowed=0
+      if (((aiwhite and piececolour==1) or (aiblack and piececolour==0)) and not selected) \
+                        and not ((aiblack and not turn) or (aiwhite and turn)): allowed=0
       if allowed:
         if coords in valid_coords and selected:
           if debug: print 'moving '+piece+' to '+str(coords)
@@ -204,9 +205,11 @@ while run:
           origin=[]
           
   if not turn and aiblack and checkgame()==0:
+    if debug: print "moving black AI"
     movepiece(*aiblack.move(board))
     turn=not turn
   if turn and aiwhite and checkgame()==0:
+    if debug: print "moving white AI"
     movepiece(*aiwhite.move(board))
     turn=not turn
 
