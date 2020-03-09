@@ -12,6 +12,7 @@ selected=""
 moves=[]
 bestcolour=(250,186,218,8)
 valid_coords=[]
+turn=0
 
 #Pygame stuff
 if debug: print "Initializing pygame...",
@@ -81,7 +82,10 @@ def possible_moves(c):
 
   #Chcek square in front and jokes for sans
   elif piecetype=="san":
-    pass
+    if piececolour=='b':
+      valid_coords=[[c[0],c[1]-1]]
+    if piececolour=='w':
+      valid_coords=[[c[0],c[1]+1]]
 
   #Remove invalid coords
   valid_coords=[i for i in valid_coords if all(j>=0 and j<6 for j in i)]
@@ -98,8 +102,30 @@ def movepiece(a,b):
   board[a[1]][a[0]]=""
   board[b[1]][b[0]]=piece
 
+def checkgame():
+  """
+  1: black wins
+  0: game ongoing
+  -1: white wins
+  """
+
+  #Check if players have pieces left
+  bboard=[[1 for j in i if j.startswith('b')] for i in board]
+  bboard=sum([sum(i) for i in bboard])
+  if bboard==0: return -1
+  wboard=[[1 for j in i if j.startswith('w')] for i in board]
+  wboard=sum([sum(i) for i in wboard])
+  if wboard==0: return 1
+
+  #Check if there are sans in the last row
+  if sum([1 for i in board[0] if i.startswith('b')]): return 1
+  if sum([1 for i in board[5] if i.startswith('w')]): return -1
+
+  #Continue normally
+  return 0
+
 #Main loop
-if debug: print "  [OK]\nEntering main loop\n---"
+if debug: print "  [OK]\nEntering main loop\n---\nBlack moves"
 run=1
 while run:
   #Draw board
@@ -123,25 +149,48 @@ while run:
         if debug: print "Escape pressed, quitting"
         run=0
 
-    if ev.type==pygame.MOUSEBUTTONDOWN:
+    if ev.type==pygame.MOUSEBUTTONDOWN and checkgame()==0:
       mousepos=pygame.mouse.get_pos()
       coords=[i/cellsize for i in mousepos]
       piece=board[coords[1]][coords[0]]
+      piececolour=['b','w',''].index(piece.split('_')[0])
       if coords in valid_coords and selected:
         if debug: print 'moving '+piece+' to '+str(coords)
         movepiece(origin,coords)
         moves=[]
         selected=""
         origin=[]
-      elif piece:
+        turn=not turn
+        if debug: print ["Black", "White"][turn]+" moves"
+      elif piece and piececolour==turn:
         if debug: print "clicked "+piece+" at "+str(coords)
         selected=[coords[0]*cellsize,coords[1]*cellsize]
         origin=coords
         valid_coords,moves=possible_moves(coords)
+      elif coords[1]==5 and not turn:
+        board[coords[1]][coords[0]]="b_san"
+        turn=not turn
+        moves=[]
+        selected=""
+        origin=[]
+      elif coords[1]==0 and turn:
+        board[coords[1]][coords[0]]="w_san"
+        turn=not turn
+        moves=[]
+        selected=""
+        origin=[]
       else:
         selected=""
         moves=[]
         origin=[]
+
+  #Victory check
+  cg=checkgame()
+  if cg!=0:
+    if cg==1 and debug: print "Black wins",
+    if cg==-1 and debug: print "White wins",
+    if debug: print "exiting"
+    run=0
 
   #Screen and clock update
   pygame.display.flip()
