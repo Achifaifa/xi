@@ -144,8 +144,8 @@ def checkgame():
   if wboard==0: return 1
 
   #Check if there are sans in the last row
-  if sum([1 for i in board[0] if i.startswith('b_sans')]): return 1
-  if sum([1 for i in board[5] if i.startswith('w_sans')]): return -1
+  if sum([1 for i in board[0] if i.startswith('b_san')]): return 1
+  if sum([1 for i in board[5] if i.startswith('w_san')]): return -1
   
   if movesleft<=0: return "t"
 
@@ -179,14 +179,15 @@ while run:
           if debug: print "Escape pressed, quitting"
           run=0
 
-      if ev.type==pygame.MOUSEBUTTONDOWN and checkgame()==0 and any([aiwhite, aiblack]):
+      if ev.type==pygame.MOUSEBUTTONDOWN and checkgame()==0:
         mousepos=pygame.mouse.get_pos()
         coords=[i/cellsize for i in mousepos]
         piece=board[coords[1]][coords[0]]
         piececolour=['b','w',''].index(piece.split('_')[0])
         allowed=1
         if (((aiwhite and piececolour==1) or (aiblack and piececolour==0)) and not selected) \
-                          and not ((aiblack and not turn) or (aiwhite and turn)): allowed=0
+           and not ((aiblack and not turn) or (aiwhite and turn)): allowed=0
+        #if not (aiblack or aiwhite): allowed=1
         if allowed:
           if coords in valid_coords and selected:
             if debug: print 'moving '+piece+' to '+str(coords)
