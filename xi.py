@@ -55,7 +55,7 @@ try:
       if debug: print "selecting %s for black AI"%val
       try:
         exec("from ai import %s"%val)
-        exec("aiwhite=%s.ai('w')"%val)
+        exec("aiwhite=%s.ai('b')"%val)
       except:
         run=0
         if debug: print "Error loading %s AI for black"%val
@@ -129,8 +129,8 @@ def checkgame():
   if wboard==0: return 1
 
   #Check if there are sans in the last row
-  if sum([1 for i in board[0] if i.startswith('b')]): return 1
-  if sum([1 for i in board[5] if i.startswith('w')]): return -1
+  if sum([1 for i in board[0] if i.startswith('b_sans')]): return 1
+  if sum([1 for i in board[5] if i.startswith('w_sans')]): return -1
 
   #Continue normally
   return 0
@@ -160,45 +160,55 @@ while run:
         if debug: print "Escape pressed, quitting"
         run=0
 
-    if ev.type==pygame.MOUSEBUTTONDOWN and checkgame()==0:
+    if ev.type==pygame.MOUSEBUTTONDOWN and checkgame()==0 and any([aiwhite, aiblack]):
       mousepos=pygame.mouse.get_pos()
       coords=[i/cellsize for i in mousepos]
       piece=board[coords[1]][coords[0]]
       piececolour=['b','w',''].index(piece.split('_')[0])
-      if coords in valid_coords and selected:
-        if debug: print 'moving '+piece+' to '+str(coords)
-        movepiece(origin,coords)
-        moves=[]
-        selected=""
-        origin=[]
-        turn=not turn
-        if debug: print ["Black", "White"][turn]+" moves"
-      elif piece and piececolour==turn:
-        if debug: print "clicked "+piece+" at "+str(coords)
-        selected=[coords[0]*cellsize,coords[1]*cellsize]
-        origin=coords
-        valid_coords=move.possible_moves(board,coords)
-        #Calculate line parameters
-        pc=lambda x: x*cellsize+cellsize/2 #coordinates of the centre of the cell
-        lsc=(pc(coords[0]),pc(coords[1])) #line start coordinates
-        lec=[[pc(i[0]),pc(i[1])] for i in valid_coords] #line end coordinates
-        moves=[lsc,lec]
-      elif coords[1]==5 and not turn:
-        board[coords[1]][coords[0]]="b_san"
-        turn=not turn
-        moves=[]
-        selected=""
-        origin=[]
-      elif coords[1]==0 and turn:
-        board[coords[1]][coords[0]]="w_san"
-        turn=not turn
-        moves=[]
-        selected=""
-        origin=[]
-      else:
-        selected=""
-        moves=[]
-        origin=[]
+      allowed=1
+      if ((aiwhite and piececolour==1) or (aiblack and piececolour==0)) and not selected: allowed=0
+      if allowed:
+        if coords in valid_coords and selected:
+          if debug: print 'moving '+piece+' to '+str(coords)
+          movepiece(origin,coords)
+          moves=[]
+          selected=""
+          origin=[]
+          turn=not turn
+          if debug: print ["Black", "White"][turn]+" moves"
+        elif piece and piececolour==turn:
+          if debug: print "clicked "+piece+" at "+str(coords)
+          selected=[coords[0]*cellsize,coords[1]*cellsize]
+          origin=coords
+          valid_coords=move.possible_moves(board,coords)
+          #Calculate line parameters
+          pc=lambda x: x*cellsize+cellsize/2 #coordinates of the centre of the cell
+          lsc=(pc(coords[0]),pc(coords[1])) #line start coordinates
+          lec=[[pc(i[0]),pc(i[1])] for i in valid_coords] #line end coordinates
+          moves=[lsc,lec]
+        elif coords[1]==5 and not turn:
+          board[coords[1]][coords[0]]="b_san"
+          turn=not turn
+          moves=[]
+          selected=""
+          origin=[]
+        elif coords[1]==0 and turn:
+          board[coords[1]][coords[0]]="w_san"
+          turn=not turn
+          moves=[]
+          selected=""
+          origin=[]
+        else:
+          selected=""
+          moves=[]
+          origin=[]
+          
+  if not turn and aiblack and checkgame()==0:
+    movepiece(*aiblack.move(board))
+    turn=not turn
+  if turn and aiwhite and checkgame()==0:
+    movepiece(*aiwhite.move(board))
+    turn=not turn
 
   #Victory check
   cg=checkgame()
