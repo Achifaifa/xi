@@ -18,4 +18,6 @@ class ai():
     while 1:
       coords=[random.randrange(6),random.randrange(6)]
       if board[coords[1]][coords[0]].startswith(self.colour):
-        return [coords, random.choice(move.possible_moves(board,coords))]
+        avmoves=move.possible_moves(board,coords)
+        if avmoves:
+          return [coords, random.choice(avmoves)]
