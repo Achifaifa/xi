@@ -86,6 +86,13 @@ except getopt.GetoptError as err:
 showboard=1 if matches==1 else 0
 matchesleft=matches
 score=[]
+
+if aiblack and aiwhite:
+  if aiblack.name==aiwhite.name: 
+    aiwhite.name+=" (%s)"%aiwhite.author
+    aiblack.name+=" (%s)"%aiblack.author
+    if aiblack.name==aiwhite.name: 
+      aiwhite.name+=" B"
   
 #Pygame stuff
 if debug: print "Initializing pygame...",
@@ -295,6 +302,7 @@ while run:
     else: 
       aia=aiblack.name
       aib=aiwhite.name
+
       scorea=score.count(aia)
       scoreb=score.count(aib)
       print "%s %i | Ties %i | %s %i"%(aia,scorea,score.count("t"),aib,scoreb)
