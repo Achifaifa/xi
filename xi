@@ -2,7 +2,8 @@
 
 import copy, getopt, os, sys
 from lib import move
-os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
+
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT']="hide"
 import pygame
 from pygame import Surface
 
@@ -15,9 +16,11 @@ size=600
 wsize=(size,size)
 selected=""
 moves=[]
-bestcolour=(250,186,218,8)
+origin=[]
 valid_coords=[]
+bestcolour=(250,186,218,8)
 turn=0
+next=0
 cellsize=size/6
 
 #AI match config
@@ -29,41 +32,46 @@ maxmoves=1000
 movesleft=maxmoves
 
 #Options and parameters
-
 try:
-  opts, args=getopt.getopt(sys.argv[1:],"w:b:n:p:dl:", ["help"])
+  opts,args=getopt.getopt(sys.argv[1:],"w:b:n:p:dl:", ["help"])
   for i in opts:
     val=i[1]
     if "--help" in i:
-      print """
-      
+      print \
+      """
       -d      debug (prints to stdout)
+
       -b      name of AI for black player (string)
       -w      name of AI for white player (string)
+
       ---For AI vs AI matches---
+
       -n      number of matches (default 1)
-               If n>1, then the board is not shown
+              If n>1, board is not shown
       -p      pause between moves (ms, default 0)
-      -l       max allowed moves in a match (default 1000)
+      -l      max allowed moves in a match (default 1000)
       """
-      run=0
+      sys.exit(0)
       
+    #TO-DO this can be cleaned further
+    ai=0
     if "-w" in i:
-      if debug: print "selecting %s for white AI"%val
-      try:
-        exec("from ai import %s"%val)
-        exec("aiwhite=%s.ai('w')"%val)
-      except:
-        run=0
-        if debug: print "Error loading %s AI for white"%val
+      aic="w"
+      aicol="white"
+      ai=1
     if "-b" in i:
-      if debug: print "selecting %s for black AI"%val
+      aic="b"
+      aicol="black"
+      ai=1
+    if ai:
+      if debug: print "selecting %s for %s AI"%(val,aicol)
       try:
         exec("from ai import %s"%val)
-        exec("aiblack=%s.ai('b')"%val)
+        exec("ai%s=%s.ai('%s')"%(aicol,val,aic))
       except:
         run=0
-        if debug: print "Error loading %s AI for black"%val
+        if debug: print "Error loading %s AI for %s"%(val,aicol)
+
     if "-n" in i:
       matches=int(val)
     if "-p" in i:
@@ -73,7 +81,7 @@ try:
   
 except getopt.GetoptError as err:
   print str(err)
-  run=0
+  sys.exit(1)
   
 showboard=1 if matches==1 else 0
 matchesleft=matches
@@ -105,9 +113,9 @@ if debug: print "Initializing board...",
 lineup=["aon","khoyor","ska","ska","khoyor","aon"]
 
 def initialize_board():
-  return [["w_"+z for z in lineup]]+[['' for i in range(6)] for j in range(4)]+[["b_"+z for z in lineup]]
-
-board=initialize_board()
+  global board
+  board=[["w_"+z for z in lineup]]+[['' for i in range(6)] for j in range(4)]+[["b_"+z for z in lineup]]
+initialize_board()
 
 #Draw board background
 if showboard:
@@ -123,9 +131,29 @@ if debug: print "  [OK]"
 
 #misc functions
 def movepiece(a,b):
-  piece=board[a[1]][a[0]]
-  board[a[1]][a[0]]=""
-  board[b[1]][b[0]]=piece
+  "Moves whatever is in A to B"
+  board[a[1]][a[0]], board[b[1]][b[0]]="", board[a[1]][a[0]]
+  resetmove()
+
+def spawnsan(a,c):
+  "Spawns a san of colour c in A"
+  board[a[1]][a[0]]=c+"_san"
+  resetmove()
+
+def resetmove():
+  "Resets move state variables"
+
+  global moves
+  global selected
+  global origin
+  moves=[]
+  selected=""
+  origin=[]
+
+def pc(coords):
+  "Calculates px coords of the middle of a square"
+
+  return [i*cellsize+cellsize/2 for i in coords]
 
 def checkgame():
   """
@@ -154,10 +182,9 @@ def checkgame():
 
 #Main loop
 if debug and run: print "Entering main loop\n---"
-if debug and not run: print "Skipping main loop"
 while run:
-  #Draw board
   if showboard:
+    #Draw board
     screen.blit(bg,(0,0))
     for idi,i in enumerate(board):
       for idj,j in enumerate(i):
@@ -169,71 +196,75 @@ while run:
             pygame.draw.circle(screen,bestcolour,z,20)
         if j: screen.blit(eval(j),position)
 
-  #Event detection
-  if showboard:
+    #Event detection
     for ev in pygame.event.get():
       if ev.type==pygame.QUIT: run=0
+      #Key handling
       if ev.type==pygame.KEYDOWN:
         keys=pygame.key.get_pressed()
         if keys[pygame.K_ESCAPE]: 
           if debug: print "Escape pressed, quitting"
           run=0
 
+      #Mouse click handling
       if ev.type==pygame.MOUSEBUTTONDOWN and checkgame()==0:
+
         mousepos=pygame.mouse.get_pos()
         coords=[i/cellsize for i in mousepos]
         piece=board[coords[1]][coords[0]]
         piececolour=['b','w',''].index(piece.split('_')[0])
-        allowed=1
-        if (((aiwhite and piececolour==1) or (aiblack and piececolour==0)) and not selected) \
-           and not ((aiblack and not turn) or (aiwhite and turn)): allowed=0
-        #if not (aiblack or aiwhite): allowed=1
-        if allowed:
-          if coords in valid_coords and selected:
+
+        #TO-DO this if is horrible
+        # Decides if the player can click in something when AIs are involved
+        if 1: #Temporarily disabled, no issues if AI is fast
+        #if not (((aiwhite and piececolour==1) or (aiblack and piececolour==0)) and not selected):
+           #or ((aiblack and not turn) or (aiwhite and turn)):
+          
+          #Piece was already selected and valid destination is clicked
+          if selected and coords in valid_coords:
             if debug: print 'moving '+piece+' to '+str(coords)
             movepiece(origin,coords)
-            moves=[]
-            selected=""
-            origin=[]
-            turn=not turn
-            if debug: print ["Black", "White"][turn]+" moves"
+            next=1
+
+          #A piece of the proper colour is clicked
           elif piece and piececolour==turn:
             if debug: print "clicked "+piece+" at "+str(coords)
             selected=[coords[0]*cellsize,coords[1]*cellsize]
             origin=coords
             valid_coords=move.possible_moves(board,coords)
             #Calculate line parameters
-            pc=lambda x: x*cellsize+cellsize/2 #coordinates of the centre of the cell
-            lsc=(pc(coords[0]),pc(coords[1])) #line start coordinates
-            lec=[[pc(i[0]),pc(i[1])] for i in valid_coords] #line end coordinates
+            lsc=pc(coords) #line start coordinates
+            lec=[pc(i) for i in valid_coords] #line end coordinates
             moves=[lsc,lec]
+            next=0
+          
+          #Black san spawning
           elif coords[1]==5 and not turn:
-            board[coords[1]][coords[0]]="b_san"
-            turn=not turn
-            moves=[]
-            selected=""
-            origin=[]
+            spawnsan(coords,"b")
+            next=1
+          #White san spawning
           elif coords[1]==0 and turn:
-            board[coords[1]][coords[0]]="w_san"
-            turn=not turn
-            moves=[]
-            selected=""
-            origin=[]
+            spawnsan(coords,"w")
+            next=1
+
           else:
-            selected=""
-            moves=[]
-            origin=[]
-            
+            resetmove()
+            next=0
+  
+  #AI movement
   if not turn and aiblack and checkgame()==0:
-    #if debug: print "moving black AI"
     movepiece(*aiblack.move(board))
     movesleft-=1
-    turn=not turn
+    next=1
+
   elif turn and aiwhite and checkgame()==0:
-    #if debug: print "moving white AI"
     movepiece(*aiwhite.move(board))
     movesleft-=1
+    next=1
+  
+  if next: 
     turn=not turn
+    next=0
 
   #Victory check
   cg=checkgame()
@@ -253,20 +284,13 @@ while run:
     #Swap AIs and restart game
     if matchesleft>0:
       aiwhite,aiblack=aiblack,aiwhite
-      board=initialize_board()
+      initialize_board()
       movesleft=maxmoves
       turn=0
-    else: 
-      vblack=score.count(1)
-      vwhite=score.count(-1)
-      nties=score.count(0)
-      print "Black %i | Ties %i | White %i"%(vblack,nties,vwhite)
-      if vblack>vwhite: print "Black wins"
-      elif vwhite>vblack: print "White wins"
-      else: print "Tie"
-      run=0
 
-    
+    else: 
+      print "Black %i | Ties %i | White %i"%(score.count(1),score.count(0),score.count(-1))
+      run=0
 
   #Screen and clock update
   if showboard:
