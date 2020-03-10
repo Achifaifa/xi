@@ -30,3 +30,10 @@ def possible_moves(board, c):
   valid_coords=[i for i in valid_coords if not board[i[1]][i[0]].startswith(piececolour)]
 
   return valid_coords
+
+def get_piece(board, coords):
+  """
+  returns the content of the board in a position (Makes AIs cleaner)
+  """
+
+  return board[coords[1]][coords[0]]

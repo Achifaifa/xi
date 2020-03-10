@@ -253,12 +253,16 @@ while run:
   
   #AI movement
   if not turn and aiblack and checkgame()==0:
-    movepiece(*aiblack.move(board))
+    bmove=aiblack.move(board)
+    if type(bmove[0]) is list: movepiece(*bmove)
+    else: spawnsan(bmove, "b") 
     movesleft-=1
     next=1
 
   elif turn and aiwhite and checkgame()==0:
-    movepiece(*aiwhite.move(board))
+    wmove=aiwhite.move(board)
+    if type(wmove[0]) is list: movepiece(*wmove)
+    else: spawnsan(wmove, "w") 
     movesleft-=1
     next=1
   
@@ -271,13 +275,13 @@ while run:
   if cg!=0:
     matchesdiff=(matches-matchesleft)%2
     if cg==1:
-      if debug: print "(%i/%i): Black wins"%(matches-matchesleft+1, matches)
-      score.append(1-matchesdiff*-2)
+      if debug: print "(%i/%i): %s wins"%(matches-matchesleft+1, matches, aiblack.name)
+      score.append(aiblack.name)
     if cg==-1:
-      if debug: print "(%i/%i): White wins"%(matches-matchesleft+1, matches)
-      score.append(-1+matchesdiff*2)
+      if debug: print "(%i/%i): %s wins"%(matches-matchesleft+1, matches, aiwhite.name)
+      score.append(aiwhite.name)
     if cg=="t":
-      score.append(0)
+      score.append("t")
       if debug: print "(%i/%i): Timeout after %i moves"%(matches-matchesleft+1, matches, maxmoves)
     matchesleft-=1
   
@@ -289,7 +293,11 @@ while run:
       turn=0
 
     else: 
-      print "Black %i | Ties %i | White %i"%(score.count(1),score.count(0),score.count(-1))
+      aia=aiblack.name
+      aib=aiwhite.name
+      scorea=score.count(aia)
+      scoreb=score.count(aib)
+      print "%s %i | Ties %i | %s %i"%(aia,scorea,score.count("t"),aib,scoreb)
       run=0
 
   #Screen and clock update
