@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import copy, getopt, os, sys
-from lib import move
+from lib import analysis, move
 
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT']="hide"
 import pygame
@@ -68,8 +68,9 @@ try:
       try:
         exec("from ai import %s"%val)
         exec("ai%s=%s.ai('%s')"%(aicol,val,aic))
-      except:
+      except Exception as e:
         run=0
+        print e
         if debug: print "Error loading %s AI for %s"%(val,aicol)
 
     if "-n" in i:
@@ -137,16 +138,6 @@ if showboard:
 if debug: print "  [OK]"
 
 #misc functions
-def movepiece(a,b):
-  "Moves whatever is in A to B"
-  board[a[1]][a[0]], board[b[1]][b[0]]="", board[a[1]][a[0]]
-  resetmove()
-
-def spawnsan(a,c):
-  "Spawns a san of colour c in A"
-  board[a[1]][a[0]]=c+"_san"
-  resetmove()
-
 def resetmove():
   "Resets move state variables"
 
@@ -161,31 +152,6 @@ def pc(coords):
   "Calculates px coords of the middle of a square"
 
   return [i*cellsize+cellsize/2 for i in coords]
-
-def checkgame():
-  """
-  1: black wins
-  0: game ongoing
-  -1: white wins
-  t: timeout
-  """
-
-  #Check if players have pieces left
-  bboard=[[1 for j in i if j.startswith('b')] for i in board]
-  bboard=sum([sum(i) for i in bboard])
-  if bboard==0: return -1
-  wboard=[[1 for j in i if j.startswith('w')] for i in board]
-  wboard=sum([sum(i) for i in wboard])
-  if wboard==0: return 1
-
-  #Check if there are sans in the last row
-  if sum([1 for i in board[0] if i.startswith('b_san')]): return 1
-  if sum([1 for i in board[5] if i.startswith('w_san')]): return -1
-  
-  if movesleft<=0: return "t"
-
-  #Continue normally
-  return 0
 
 #Main loop
 if debug and run: print "Entering main loop\n---"
@@ -214,7 +180,7 @@ while run:
           run=0
 
       #Mouse click handling
-      if ev.type==pygame.MOUSEBUTTONDOWN and checkgame()==0:
+      if ev.type==pygame.MOUSEBUTTONDOWN and analysis.checkgame(board)==0:
 
         mousepos=pygame.mouse.get_pos()
         coords=[i/cellsize for i in mousepos]
@@ -230,15 +196,16 @@ while run:
           #Piece was already selected and valid destination is clicked
           if selected and coords in valid_coords:
             if debug: print 'moving '+piece+' to '+str(coords)
-            movepiece(origin,coords)
+            move.movepiece(board,origin,coords)
             next=1
+            resetmove()
 
           #A piece of the proper colour is clicked
           elif piece and piececolour==turn:
             if debug: print "clicked "+piece+" at "+str(coords)
             selected=[coords[0]*cellsize,coords[1]*cellsize]
             origin=coords
-            valid_coords=move.possible_moves(board,coords)
+            valid_coords=analysis.possible_moves(board,coords)
             #Calculate line parameters
             lsc=pc(coords) #line start coordinates
             lec=[pc(i) for i in valid_coords] #line end coordinates
@@ -247,29 +214,29 @@ while run:
           
           #Black san spawning
           elif coords[1]==5 and not turn:
-            spawnsan(coords,"b")
+            move.spawnsan(board,coords,"b")
             next=1
+            resetmove()
           #White san spawning
           elif coords[1]==0 and turn:
-            spawnsan(coords,"w")
+            move.spawnsan(board,coords,"w")
             next=1
+            resetmove()
 
           else:
             resetmove()
             next=0
   
   #AI movement
-  if not turn and aiblack and checkgame()==0:
-    bmove=aiblack.move(board)
-    if type(bmove[0]) is list: movepiece(*bmove)
-    else: spawnsan(bmove, "b") 
+  if not turn and aiblack and analysis.checkgame(board)==0:
+    bmove=aiblack.move(copy.copy(board))
+    board=move.move(board,bmove,"b")
     movesleft-=1
     next=1
 
-  elif turn and aiwhite and checkgame()==0:
-    wmove=aiwhite.move(board)
-    if type(wmove[0]) is list: movepiece(*wmove)
-    else: spawnsan(wmove, "w") 
+  elif turn and aiwhite and analysis.checkgame(board)==0:
+    wmove=aiwhite.move(copy.copy(board))
+    board=move.move(board,wmove,"w")
     movesleft-=1
     next=1
   
@@ -278,7 +245,7 @@ while run:
     next=0
 
   #Victory check
-  cg=checkgame()
+  cg=analysis.checkgame(board)
   if cg!=0:
     matchesdiff=(matches-matchesleft)%2
     if cg==1:
@@ -287,26 +254,27 @@ while run:
     if cg==-1:
       if debug: print "(%i/%i): %s wins"%(matches-matchesleft+1, matches, aiwhite.name)
       score.append(aiwhite.name)
-    if cg=="t":
+    if movesleft<0:
       score.append("t")
       if debug: print "(%i/%i): Timeout after %i moves"%(matches-matchesleft+1, matches, maxmoves)
     matchesleft-=1
-  
-    #Swap AIs and restart game
-    if matchesleft>0:
-      aiwhite,aiblack=aiblack,aiwhite
-      initialize_board()
-      movesleft=maxmoves
-      turn=0
+    
+    if aiblack and aiwhite:
+      #Swap AIs and restart game
+      if matchesleft>0:
+        aiwhite,aiblack=aiblack,aiwhite
+        initialize_board()
+        movesleft=maxmoves
+        turn=0
 
-    else: 
-      aia=aiblack.name
-      aib=aiwhite.name
+      else: 
+        aia=aiblack.name
+        aib=aiwhite.name
 
-      scorea=score.count(aia)
-      scoreb=score.count(aib)
-      print "%s %i | Ties %i | %s %i"%(aia,scorea,score.count("t"),aib,scoreb)
-      run=0
+        scorea=score.count(aia)
+        scoreb=score.count(aib)
+        print "%s %i | Ties %i | %s %i"%(aia,scorea,score.count("t"),aib,scoreb)
+        run=0
 
   #Screen and clock update
   if showboard:

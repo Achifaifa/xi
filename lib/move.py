@@ -1,39 +1,20 @@
-def possible_moves(board, c):
-  """
-  returns possible moves for a given piece
-  """
+import copy
 
-  piece=board[c[1]][c[0]]
-  piececolour,piecetype=piece.split('_')
+def move(board,mov,c):
+  tm=type(mov[0])
+  if tm is int: 
+    return spawnsan(board,mov,c)
+  if tm is list:
+    return movepiece(board,*mov)
 
-  #Check adjacent squares for aons
-  if piecetype=="aon":
-    valid_coords=[[c[0]+1,c[1]],[c[0]-1,c[1]],[c[0],c[1]+1],[c[0],c[1]-1]]
+def movepiece(board,a,b):
+  "Moves whatever is in A to B"
+  tb=copy.copy(board)
+  tb[a[1]][a[0]], tb[b[1]][b[0]]="", tb[a[1]][a[0]]
+  return tb
 
-  #Check squares 2 away for khoyors
-  elif piecetype=="khoyor":
-    valid_coords=[[c[0]+2,c[1]],[c[0]-2,c[1]],[c[0],c[1]+2],[c[0],c[1]-2]]
-
-  #Check diagonal squares for skas
-  elif piecetype=="ska":
-    valid_coords=[[c[0]+1,c[1]+1],[c[0]-1,c[1]-1],[c[0]+1,c[1]-1],[c[0]-1,c[1]+1]]
-
-  #Chcek square in front and jokes for sans
-  elif piecetype=="san":
-    if piececolour=='b':
-      valid_coords=[[c[0],c[1]-1]]
-    if piececolour=='w':
-      valid_coords=[[c[0],c[1]+1]]
-
-  #Remove invalid coords
-  valid_coords=[i for i in valid_coords if all(j>=0 and j<6 for j in i)]
-  valid_coords=[i for i in valid_coords if not board[i[1]][i[0]].startswith(piececolour)]
-
-  return valid_coords
-
-def get_piece(board, coords):
-  """
-  returns the content of the board in a position (Makes AIs cleaner)
-  """
-
-  return board[coords[1]][coords[0]]
+def spawnsan(board,a,c):
+  "Spawns a san of colour c in A"
+  tb=copy.copy(board)
+  tb[a[1]][a[0]]=c+"_san"
+  return tb

@@ -1,6 +1,6 @@
 import random, sys
 sys.path.insert(0,'..')
-from lib import move
+from lib import analysis, move
 
 class ai():
   """
@@ -19,6 +19,6 @@ class ai():
     while 1:
       coords=[random.randrange(6),random.randrange(6)]
       if board[coords[1]][coords[0]].startswith(self.colour):
-        avmoves=move.possible_moves(board,coords)
+        avmoves=analysis.possible_moves(board,coords)
         if avmoves:
           return [coords, random.choice(avmoves)]

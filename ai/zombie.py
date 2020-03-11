@@ -1,6 +1,6 @@
 import random, sys
 sys.path.insert(0,'..')
-from lib import move
+from lib import analysis, move
 
 class ai():
   """
@@ -24,23 +24,23 @@ class ai():
       for cj,j in enumerate(i):
         if j.startswith(self.colour): pieces.append([cj,ci])
     for i in pieces:
-      for j in move.possible_moves(board,i):
-        if move.get_piece(board, j).startswith(self.opcolour):
+      for j in analysis.possible_moves(board,i):
+        if analysis.getpiece(board, j).startswith(self.opcolour):
           return [i,j]
 
     #Move or spawn at random
     while 1:
       coords=[random.randrange(6),random.randrange(6)]
-      if move.get_piece(board,coords).startswith(self.colour):
-        avmoves=move.possible_moves(board,coords)
+      if analysis.getpiece(board,coords).startswith(self.colour):
+        avmoves=analysis.possible_moves(board,coords)
         if avmoves:
           for i in avmoves:
-            piece=move.get_piece(board,i)
+            piece=analysis.getpiece(board,i)
             if piece and not piece.startswith(self.colour):
               return [coords, i]
           return [coords, random.choice(avmoves)]
       if ((self.colour=="b" and coords[1]==5) or (self.colour=="w" and coords[1]==0)) \
-        and move.get_piece(board,coords)=="":
+        and analysis.getpiece(board,coords)=="":
         return coords
 
 
