@@ -39,7 +39,9 @@ try:
     if "--help" in i:
       print \
       """
-      -d      debug (prints to stdout)
+      -d      debug (prints events to stdout)
+      -r      record (Records list of moves to file) [TO-DO]
+      -f      replays game recorded on file [TO-DO]
 
       -b      name of AI for black player (string)
       -w      name of AI for white player (string)
@@ -113,6 +115,8 @@ if showboard:
     imgsize=",(%i,%i))"%(cellsize,cellsize)
     exec(name+'=pygame.image.load("img/'+i+'")')
     exec(name+'=pygame.transform.scale('+name+imgsize)
+  img_thinking=pygame.image.load("img/thinking.png")
+  img_thinking=pygame.transform.scale(img_thinking, (cellsize,cellsize))
     #exec(name+'_rect='+name+'.get_rect()') #haha get rekt
   if debug: print "  [OK]"
 
@@ -153,11 +157,8 @@ def pc(coords):
 
   return [i*cellsize+cellsize/2 for i in coords]
 
-#Main loop
-if debug and run: print "Entering main loop\n---"
-while run:
-  if showboard:
-    #Draw board
+def show(board):
+
     screen.blit(bg,(0,0))
     for idi,i in enumerate(board):
       for idj,j in enumerate(i):
@@ -168,6 +169,13 @@ while run:
             pygame.draw.line(screen,bestcolour,moves[0],z,10)
             pygame.draw.circle(screen,bestcolour,z,20)
         if j: screen.blit(eval(j),position)
+
+#Main loop
+if debug and run: print "Entering main loop\n---"
+while run:
+
+  if showboard:
+    show(board)
 
     #Event detection
     for ev in pygame.event.get():
@@ -226,6 +234,10 @@ while run:
           else:
             resetmove()
             next=0
+
+        #show board again after input
+        show(board)
+        if (aiblack or aiwhite) and next: screen.blit(img_thinking,(2.5*cellsize,2.5*cellsize))
   
   #AI movement
   if not turn and aiblack and analysis.checkgame(board)==0:
@@ -234,7 +246,7 @@ while run:
     movesleft-=1
     next=1
 
-  elif turn and aiwhite and analysis.checkgame(board)==0:
+  if turn and aiwhite and analysis.checkgame(board)==0:
     wmove=aiwhite.move(copy.copy(board))
     board=move.move(board,wmove,"w")
     movesleft-=1
@@ -246,7 +258,7 @@ while run:
 
   #Victory check
   cg=analysis.checkgame(board)
-  if cg!=0:
+  if cg!=0 and aiblack and aiwhite:
     matchesdiff=(matches-matchesleft)%2
     if cg==1:
       if debug: print "(%i/%i): %s wins"%(matches-matchesleft+1, matches, aiblack.name)
