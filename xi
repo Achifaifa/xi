@@ -166,11 +166,6 @@ def resetmove():
   selected=""
   origin=[]
 
-# def pc(coords):
-#   "Calculates px coords of the middle of a square"
-
-#   return [i*cellsize+cellsize/2 for i in coords]
-
 def show(board):
 
   #Draw background
@@ -185,8 +180,6 @@ def show(board):
   if selected: screen.blit(sel,selected)
   if moves:
     for z in moves:
-      #pygame.draw.line(screen,bestcolour,moves[0],z,10)
-      # pygame.draw.circle(screen,bestcolour,z,20)
       screen.blit(sel,z)
 
   #Draw pieces
@@ -240,9 +233,6 @@ while run:
             selected=[coords[0]*cellsize,coords[1]*cellsize]
             origin=coords
             valid_coords=analysis.possible_moves(board,coords)
-            #Calculate line parameters
-            # lsc=pc(coords) #line start coordinates
-            # lec=[pc(i) for i in valid_coords] #line end coordinates
             moves=[[i*cellsize for i in j] for j in valid_coords]
             next=0
           
