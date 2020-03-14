@@ -18,7 +18,8 @@ selected=""
 moves=[]
 origin=[]
 valid_coords=[]
-bestcolour=(250,186,218,8)
+last=[]
+bestcolour=(250,186,218,128)
 turn=0
 next=0
 cellsize=size/6
@@ -33,20 +34,30 @@ movesleft=maxmoves
 
 #Options and parameters
 try:
-  opts,args=getopt.getopt(sys.argv[1:],"w:b:n:p:dl:", ["help"])
+  opts,args=getopt.getopt(sys.argv[1:],"w:b:n:p:dlrf:t:", ["help"])
   for i in opts:
     val=i[1]
     if "--help" in i:
       print \
       """
+      ---General options---
+
       -d      debug (prints events to stdout)
       -r      record (Records list of moves to file) [TO-DO]
       -f      replays game recorded on file [TO-DO]
+      -t      places black on top instead of bottom [TO-DO]
+
+      ---Network play---
+
+      -c      connect to a server [TO-DO] (Default port for xi is 12345)
+      -s      start a server [TO-DO]
+
+      ---AI options---
 
       -b      name of AI for black player (string)
       -w      name of AI for white player (string)
 
-      ---For AI vs AI matches---
+      ---AI vs AI matches---
 
       -n      number of matches (default 1)
               If n>1, board is not shown
@@ -113,7 +124,7 @@ if showboard:
   for i in os.listdir('img'):
     name=i.replace('.png','')
     imgsize=",(%i,%i))"%(cellsize,cellsize)
-    exec(name+'=pygame.image.load("img/'+i+'")')
+    exec(name+'=pygame.image.load("img/'+i+'").convert_alpha()')
     exec(name+'=pygame.transform.scale('+name+imgsize)
   img_thinking=pygame.image.load("img/thinking.png")
   img_thinking=pygame.transform.scale(img_thinking, (cellsize,cellsize))
@@ -139,6 +150,9 @@ if showboard:
   #Selection square
   sel=pygame.Surface((cellsize,cellsize), pygame.SRCALPHA)
   sel.fill(bestcolour)
+  #Move highlight square
+  mov=pygame.Surface((cellsize,cellsize), pygame.SRCALPHA)
+  mov.fill((128,0,128,128))
 if debug: print "  [OK]"
 
 #misc functions
@@ -152,24 +166,35 @@ def resetmove():
   selected=""
   origin=[]
 
-def pc(coords):
-  "Calculates px coords of the middle of a square"
+# def pc(coords):
+#   "Calculates px coords of the middle of a square"
 
-  return [i*cellsize+cellsize/2 for i in coords]
+#   return [i*cellsize+cellsize/2 for i in coords]
 
 def show(board):
 
-    screen.blit(bg,(0,0))
-    for idi,i in enumerate(board):
-      for idj,j in enumerate(i):
-        position=(cellsize*idj,cellsize*idi)
-        if selected: screen.blit(sel,selected)
-        if moves:
-          for z in moves[1]:
-            pygame.draw.line(screen,bestcolour,moves[0],z,10)
-            pygame.draw.circle(screen,bestcolour,z,20)
-        if j: screen.blit(eval(j),position)
+  #Draw background
+  screen.blit(bg,(0,0))
 
+  #Highlight previous move
+  if last:
+    for q in last:
+      screen.blit(mov,[i*cellsize for i in q])
+
+  #Piece and possible moves
+  if selected: screen.blit(sel,selected)
+  if moves:
+    for z in moves:
+      #pygame.draw.line(screen,bestcolour,moves[0],z,10)
+      # pygame.draw.circle(screen,bestcolour,z,20)
+      screen.blit(sel,z)
+
+  #Draw pieces
+  for idi,i in enumerate(board):
+    for idj,j in enumerate(i):
+      position=(cellsize*idj,cellsize*idi)
+      if j: screen.blit(eval(j),position)
+  
 #Main loop
 if debug and run: print "Entering main loop\n---"
 while run:
@@ -205,6 +230,7 @@ while run:
           if selected and coords in valid_coords:
             if debug: print 'moving '+piece+' to '+str(coords)
             move.movepiece(board,origin,coords)
+            last=[origin,coords]
             next=1
             resetmove()
 
@@ -215,20 +241,22 @@ while run:
             origin=coords
             valid_coords=analysis.possible_moves(board,coords)
             #Calculate line parameters
-            lsc=pc(coords) #line start coordinates
-            lec=[pc(i) for i in valid_coords] #line end coordinates
-            moves=[lsc,lec]
+            # lsc=pc(coords) #line start coordinates
+            # lec=[pc(i) for i in valid_coords] #line end coordinates
+            moves=[[i*cellsize for i in j] for j in valid_coords]
             next=0
           
           #Black san spawning
           elif coords[1]==5 and not turn and all([not i for i in analysis.homerow(board,"b")]):
             move.spawnsan(board,coords,"b")
             next=1
+            last=[coords]
             resetmove()
           #White san spawning
           elif coords[1]==0 and turn and all([not i for i in analysis.homerow(board,"w")]):
             move.spawnsan(board,coords,"w")
             next=1
+            last=[coords]
             resetmove()
 
           else:
@@ -244,12 +272,14 @@ while run:
     bmove=aiblack.move(copy.copy(board))
     board=move.move(board,bmove,"b")
     movesleft-=1
+    last=bmove
     next=1
 
   if turn and aiwhite and analysis.checkgame(board)==0:
     wmove=aiwhite.move(copy.copy(board))
     board=move.move(board,wmove,"w")
     movesleft-=1
+    last=wmove
     next=1
   
   if next: 
