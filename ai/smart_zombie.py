@@ -45,12 +45,13 @@ class ai():
       if analysis.possible_moves(board,sans[0]):
         return(sans[0],analysis.possible_moves(board,sans[0])[0])
 
-    #Spawn san before moving at random
-    for idi,i in enumerate(homerow):
-      if not i:
-        return([idi,homerown])
+    #Spawn san if able before moving at random
+    if all([not i for i in analysis.homerow(board,self.colour)]):
+      for idi,i in enumerate(homerow):
+        if not i:
+          return([idi,homerown])
 
-    #Move or spawn at random
+    #Move or spawn
     while 1:
       coords=[random.randrange(6),random.randrange(6)]
       if analysis.getpiece(board,coords).startswith(self.colour):
@@ -61,8 +62,6 @@ class ai():
             if piece and not piece.startswith(self.colour):
               return [coords, i]
           return [coords, random.choice(avmoves)]
-      if ((self.colour=="b" and coords[1]==5) or (self.colour=="w" and coords[1]==0)) \
-        and analysis.getpiece(board,coords)=="":
-        return coords
+
 
 

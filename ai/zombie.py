@@ -40,7 +40,8 @@ class ai():
               return [coords, i]
           return [coords, random.choice(avmoves)]
       if ((self.colour=="b" and coords[1]==5) or (self.colour=="w" and coords[1]==0)) \
-        and analysis.getpiece(board,coords)=="":
+        and analysis.getpiece(board,coords)=="" \
+        and all([not i for i in analysis.homerow(board,self.colour)]):
         return coords
 
 

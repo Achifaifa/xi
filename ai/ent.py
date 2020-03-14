@@ -35,9 +35,11 @@ class tree():
       for pmove in analysis.possible_moves(bd,piece):
         self.moves.append(node([piece,pmove],move.movepiece(copy.deepcopy(bd),piece,pmove),self.colour))
 
-    for idi,i in enumerate(analysis.homerow(bd,self.colour)):
-      sancoords=[idi,5 if self.colour=="b" else 0]
-      if not i: self.moves.append(node(sancoords,move.spawnsan(copy.deepcopy(bd),sancoords,self.colour),self.colour))
+    #Create nodes for san spawning if homerow is empty
+    if all([not i for i in analysis.homerow(bd,self.colour)]):
+      for idi,i in enumerate(analysis.homerow(bd,self.colour)):
+        sancoords=[idi,5 if self.colour=="b" else 0]
+        if not i: self.moves.append(node(sancoords,move.spawnsan(copy.deepcopy(bd),sancoords,self.colour),self.colour))
 
   def populate(self):
 
@@ -94,23 +96,27 @@ class node():
 
 
     if not self.childs:
-      #Evaluate state of the board if this is the last node
-      #Regular pieces are worth 2, sans are worth 1
+
+      #Regular pieces are worth 3, sans are worth 1
       wpieces=analysis.getpieces(self.board,"w")
       wpieces=[analysis.getpiece(self.board,i) for i in wpieces]
-      wscore=sum([1 if "san" in i else 2 for i in wpieces])
+      wscore=sum([1 if "san" in i else 3 for i in wpieces])
       bpieces=analysis.getpieces(self.board,"b")
       bpieces=[analysis.getpiece(self.board,i) for i in bpieces]
-      bscore=sum([1 if "san" in i else 2 for i in bpieces])
+      bscore=sum([1 if "san" in i else 3 for i in bpieces])
       diff=bscore-wscore
       self.score+=diff*5
 
-      #Also prioritize maximizing number of moves (Depends on colour)
-      # nmoves=0
-      # for i in analysis.getpieces(self.board,self.colour):
-      #   for j in analysis.possible_moves(self.board,i):
-      #     nmoves+=1
-      # self.score+=nmoves*2
+      #Also prioritize maximizing number of moves
+      bmoves=wmoves=0
+      for i in analysis.getpieces(self.board,"b"):
+        for j in analysis.possible_moves(self.board,i):
+          bmoves+=1
+      for i in analysis.getpieces(self.board,"w"):
+        for j in analysis.possible_moves(self.board,i):
+          wmoves+=1
+      movediff=bmoves-wmoves
+      self.score+=movediff*2
 
       #Check if the current node is winning or losing
       outcome=analysis.checkgame(self.board)

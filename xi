@@ -221,12 +221,12 @@ while run:
             next=0
           
           #Black san spawning
-          elif coords[1]==5 and not turn:
+          elif coords[1]==5 and not turn and all([not i for i in analysis.homerow(board,"b")]):
             move.spawnsan(board,coords,"b")
             next=1
             resetmove()
           #White san spawning
-          elif coords[1]==0 and turn:
+          elif coords[1]==0 and turn and all([not i for i in analysis.homerow(board,"w")]):
             move.spawnsan(board,coords,"w")
             next=1
             resetmove()

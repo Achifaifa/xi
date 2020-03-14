@@ -24,7 +24,9 @@ Only moves away from the home row
 
 * The home row (The line closest to each player) is set (aon, khoyor, ska, ska, khoyor, aon).
 * Black moves first.
-* On every turn, the player can either move a piece or spawn a san on any empty square of the home row
+* On every turn, the player can either:
+  * Move a piece
+  * Spawn a san on any empty square of the home row if the home row is empty
 * A piece can capture another piece of the opposite colour by moving to the same square. The captured piece is permanently removed from play.
 * The game ends and a player wins when that player puts a san on the opponents' home row or the opponent has no pieces to move.
  
