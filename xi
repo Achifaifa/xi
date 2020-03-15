@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import copy, getopt, os, sys
-from lib import analysis, move
+from lib import analysis, move, network
 
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT']="hide"
 import pygame
@@ -24,6 +24,7 @@ turn=0
 next=0
 cellsize=size/6
 reverse=0
+net=0
 
 #AI match config
 aiblack=""
@@ -35,7 +36,7 @@ movesleft=maxmoves
 
 #Options and parameters
 try:
-  opts,args=getopt.getopt(sys.argv[1:],"w:b:n:p:dlrf:t", ["help"])
+  opts,args=getopt.getopt(sys.argv[1:],"w:b:n:p:dlrf:tc:s", ["help"])
   for i in opts:
     val=i[1]
     if "--help" in i:
@@ -50,8 +51,8 @@ try:
 
       ---Network play---
 
-      -c      connect to a server [TO-DO] (Default port for xi is 12345)
-      -s      start a server [TO-DO]
+      -c      connect to a server (ip). Play as white
+      -s      start a server. Play as black
 
       ---AI options---
 
@@ -72,8 +73,6 @@ try:
     if "-t" in i:
       reverse=1
 
-    #Network play [TO-DO]
-
     #AI options
     ai=0
     if "-w" in i:
@@ -93,6 +92,7 @@ try:
         run=0
         print e
         if debug: print "Error loading %s AI for %s"%(val,aicol)
+
     #AI vs AI matches
     if "-n" in i:
       matches=int(val)
@@ -100,9 +100,15 @@ try:
       pause=int(val)
     if "-l" in i:
       maxmoves=int(val)
+
+    #Network play
+    if "-s" in i:
+      net=1
+    if "-c" in i:
+      net=val
   
-except getopt.GetoptError as err:
-  print str(err)
+except Exception as e:
+  print e
   sys.exit(1)
   
 showboard=1 if matches==1 else 0
@@ -116,6 +122,17 @@ if aiblack and aiwhite:
     aiblack.name+=" (%s)"%aiblack.author
     if aiblack.name==aiwhite.name: 
       aiwhite.name+=" 2"
+
+#Network setup
+if net==1:
+  if debug: print "Waiting for client connection..."
+  c=network.connection()
+  c.receive()
+elif net:
+  if debug: print "Connecting to server at %s..."%net
+  c=network.connection(net)
+  
+if debug: print "Connection established"
   
 #Pygame stuff
 if debug: print "Initializing pygame...",
@@ -131,16 +148,19 @@ if debug: print "  [OK]"
 if showboard:
   if debug: print "Loading resources...",
   for i in os.listdir('img'):
-    name=i.replace('.png','')
-    imgsize=",(%i,%i))"%(cellsize,cellsize)
-    exec(name+'=pygame.image.load("img/'+i+'").convert_alpha()')
-    exec(name+'=pygame.transform.scale('+name+imgsize)
+    if "w_" in i or "b_" in i:
+      name=i.replace('.png','')
+      imgsize=",(%i,%i))"%(cellsize,cellsize)
+      exec(name+'=pygame.image.load("img/'+i+'").convert_alpha()')
+      exec(name+'=pygame.transform.scale('+name+imgsize)
   img_thinking=pygame.image.load("img/thinking.png")
   img_thinking=pygame.transform.scale(img_thinking, (cellsize,cellsize))
   img_blackwins=pygame.image.load("img/blackwins.png")
   img_blackwins=pygame.transform.scale(img_blackwins, (cellsize*2,cellsize*2))
   img_whitewins=pygame.image.load("img/whitewins.png")
   img_whitewins=pygame.transform.scale(img_whitewins, (cellsize*2,cellsize*2))
+  img_clock=pygame.image.load("img/clock.png")
+  img_clock=pygame.transform.scale(img_clock, (cellsize,cellsize))
 
 
   #Board background and auxiliary graphics
@@ -234,15 +254,15 @@ while run:
         coords=[i/cellsize for i in mousepos]
         piece=board[coords[1]][coords[0]]
         piececolour=['b','w',''].index(piece.split('_')[0])
-
-        # Decides if the player can click in something when AIs are involved
           
         #Piece was already selected and valid destination is clicked
         if selected and coords in valid_coords:
-          if debug: print 'moving '+piece+' to '+str(coords)
+          if debug: print 'moving to '+str(coords)
           move.movepiece(board,origin,coords)
           last=[origin,coords]
           next=1
+          if debug: print "Sending move to network"
+          c.send(last)
           resetmove()
 
         #A piece of the proper colour is clicked
@@ -274,25 +294,50 @@ while run:
       #show board again after input, show thinking icon if the AI is next
       show(board)
       if (aiblack or aiwhite) and next: screen.blit(img_thinking,(2.5*cellsize,2.5*cellsize))
-  
-  #AI movement
-  if not turn and aiblack and analysis.checkgame(board)==0:
-    bmove=aiblack.move(copy.copy(board))
-    board=move.move(board,bmove,"b")
-    movesleft-=1
-    last=bmove
-    next=1
 
-  if turn and aiwhite and analysis.checkgame(board)==0:
-    wmove=aiwhite.move(copy.copy(board))
-    board=move.move(board,wmove,"w")
-    movesleft-=1
-    last=wmove
-    next=1
+  if analysis.checkgame(board)==0:
+
+    #Network movement
+    if net==1 and not turn:
+      screen.blit(img_clock,(2.5*cellsize,2.5*cellsize))
+      pygame.display.flip()
+      if debug: print "Waiting for white move over network"
+      wmove=c.receive()
+      if debug: print "Received move:",wmove
+      board=move.move(board,wmove,"w")
+      last=wmove
+      next=1
+
+    elif type(net)==str and turn:
+      screen.blit(img_clock,(2.5*cellsize,2.5*cellsize))
+      pygame.display.flip()
+      if debug: print "Waiting for black move over network"
+      bmove=c.receive()
+      if debug: print "Received move:", bmove
+      board=move.move(board,bmove,"b")
+      last=bmove
+      next=1
+    
+    #AI movement
+    if not turn and aiblack:
+      if debug: print "Black AI calculating move"
+      bmove=aiblack.move(copy.copy(board))
+      board=move.move(board,bmove,"b")
+      movesleft-=1
+      last=bmove
+      next=1
+
+    if turn and aiwhite:
+      if debug: print "White AI calculating move"
+      wmove=aiwhite.move(copy.copy(board))
+      board=move.move(board,wmove,"w")
+      movesleft-=1
+      last=wmove
+      next=1
   
-  if next: 
-    turn=not turn
-    next=0
+    if next: 
+      turn=not turn
+      next=0
 
   #Victory check
   cg=analysis.checkgame(board)
