@@ -141,7 +141,7 @@ clock=pygame.time.Clock()
 if showboard:
   pygame.font.init()
   screen=pygame.display.set_mode(wsize)
-  pygame.display.set_caption('Xi')
+  pygame.display.set_caption('Xi '+" ".join(sys.argv[1:]))
 if debug: print "  [OK]"
 
 #Load resources
@@ -229,7 +229,8 @@ def show(board):
     screen.blit(img_whitewins,(cellsize*2,cellsize*2))
 
   pygame.display.flip()
-  
+
+
 #Main loop
 if debug and run: print "Entering main loop\n---"
 while run:
@@ -248,7 +249,12 @@ while run:
           run=0
 
       #Mouse click handling
-      if ev.type==pygame.MOUSEBUTTONDOWN and analysis.checkgame(board)==0:
+
+      player_enabled=not ((aiblack and net==1) or (aiwhite and type(net)==str))\
+                and not (aiblack and aiwhite) \
+                and not ((net==1 and turn) or (type(net)==str and not turn))
+
+      if ev.type==pygame.MOUSEBUTTONDOWN and analysis.checkgame(board)==0 and player_enabled:
 
         mousepos=pygame.mouse.get_pos()
         coords=[i/cellsize for i in mousepos]
@@ -262,7 +268,7 @@ while run:
           last=[origin,coords]
           next=1
           if debug: print "Sending move to network"
-          c.send(last)
+          if net: c.send(last)
           resetmove()
 
         #A piece of the proper colour is clicked
@@ -298,7 +304,7 @@ while run:
   if analysis.checkgame(board)==0:
 
     #Network movement
-    if net==1 and not turn:
+    if net==1 and turn:
       screen.blit(img_clock,(2.5*cellsize,2.5*cellsize))
       pygame.display.flip()
       if debug: print "Waiting for white move over network"
@@ -308,7 +314,7 @@ while run:
       last=wmove
       next=1
 
-    elif type(net)==str and turn:
+    elif type(net)==str and not turn:
       screen.blit(img_clock,(2.5*cellsize,2.5*cellsize))
       pygame.display.flip()
       if debug: print "Waiting for black move over network"
@@ -326,6 +332,7 @@ while run:
       movesleft-=1
       last=bmove
       next=1
+      if net: c.send(last)
 
     if turn and aiwhite:
       if debug: print "White AI calculating move"
@@ -334,6 +341,7 @@ while run:
       movesleft-=1
       last=wmove
       next=1
+      if net: c.send(last)
   
     if next: 
       turn=not turn
@@ -379,5 +387,6 @@ while run:
   #sleep if the match is AI vs AI
   if aiblack and aiwhite and showboard: pygame.time.wait(pause)
 
+c.closeconn()
 pygame.quit()
 
