@@ -109,12 +109,13 @@ showboard=1 if matches==1 else 0
 matchesleft=matches
 score=[]
 
+#Differentiation for AI vs AI
 if aiblack and aiwhite:
   if aiblack.name==aiwhite.name: 
     aiwhite.name+=" (%s)"%aiwhite.author
     aiblack.name+=" (%s)"%aiblack.author
     if aiblack.name==aiwhite.name: 
-      aiwhite.name+=" B"
+      aiwhite.name+=" 2"
   
 #Pygame stuff
 if debug: print "Initializing pygame...",
@@ -136,20 +137,13 @@ if showboard:
     exec(name+'=pygame.transform.scale('+name+imgsize)
   img_thinking=pygame.image.load("img/thinking.png")
   img_thinking=pygame.transform.scale(img_thinking, (cellsize,cellsize))
-    #exec(name+'_rect='+name+'.get_rect()') #haha get rekt
-  if debug: print "  [OK]"
+  img_blackwins=pygame.image.load("img/blackwins.png")
+  img_blackwins=pygame.transform.scale(img_blackwins, (cellsize*2,cellsize*2))
+  img_whitewins=pygame.image.load("img/whitewins.png")
+  img_whitewins=pygame.transform.scale(img_whitewins, (cellsize*2,cellsize*2))
 
-#initialize board
-if debug: print "Initializing board...",
-lineup=["aon","khoyor","ska","ska","khoyor","aon"]
 
-def initialize_board():
-  global board
-  board=[["w_"+z for z in lineup]]+[['' for i in range(6)] for j in range(4)]+[["b_"+z for z in lineup]]
-initialize_board()
-
-#Draw board background
-if showboard:
+  #Board background and auxiliary graphics
   bg=pygame.Surface((wsize[1],wsize[1]))
   bg.fill((192,192,192))
   for i in (0,2,4):
@@ -161,6 +155,17 @@ if showboard:
   #Move highlight square
   mov=pygame.Surface((cellsize,cellsize), pygame.SRCALPHA)
   mov.fill((128,0,128,128))
+  if debug: print "  [OK]"
+
+#initialize board
+if debug: print "Initializing board...",
+lineup=["aon","khoyor","ska","ska","khoyor","aon"]
+
+def initialize_board():
+  global board
+  board=[["w_"+z for z in lineup]]+[['' for i in range(6)] for j in range(4)]+[["b_"+z for z in lineup]]
+initialize_board()
+
 if debug: print "  [OK]"
 
 #misc functions
@@ -197,6 +202,12 @@ def show(board):
       if j: screen.blit(eval(j),position)
 
   if reverse==1: screen.blit(pygame.transform.rotate(screen, 180), (0, 0))
+
+  if analysis.checkgame(board)==1:
+    screen.blit(img_blackwins,(cellsize*2,cellsize*2))
+  elif analysis.checkgame(board)==-1:
+    screen.blit(img_whitewins,(cellsize*2,cellsize*2))
+
   pygame.display.flip()
   
 #Main loop
