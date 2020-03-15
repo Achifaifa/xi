@@ -23,6 +23,7 @@ bestcolour=(250,186,218,128)
 turn=0
 next=0
 cellsize=size/6
+reverse=0
 
 #AI match config
 aiblack=""
@@ -34,7 +35,7 @@ movesleft=maxmoves
 
 #Options and parameters
 try:
-  opts,args=getopt.getopt(sys.argv[1:],"w:b:n:p:dlrf:t:", ["help"])
+  opts,args=getopt.getopt(sys.argv[1:],"w:b:n:p:dlrf:t", ["help"])
   for i in opts:
     val=i[1]
     if "--help" in i:
@@ -45,7 +46,7 @@ try:
       -d      debug (prints events to stdout)
       -r      record (Records list of moves to file) [TO-DO]
       -f      replays game recorded on file [TO-DO]
-      -t      places black on top instead of bottom [TO-DO]
+
 
       ---Network play---
 
@@ -63,10 +64,17 @@ try:
               If n>1, board is not shown
       -p      pause between moves (ms, default 0)
       -l      max allowed moves in a match (default 1000)
+      -t      places black on top instead of bottom (Doesn't work with player inputs)
       """
       sys.exit(0)
       
-    #TO-DO this can be cleaned further
+    #General options
+    if "-t" in i:
+      reverse=1
+
+    #Network play [TO-DO]
+
+    #AI options
     ai=0
     if "-w" in i:
       aic="w"
@@ -85,7 +93,7 @@ try:
         run=0
         print e
         if debug: print "Error loading %s AI for %s"%(val,aicol)
-
+    #AI vs AI matches
     if "-n" in i:
       matches=int(val)
     if "-p" in i:
@@ -187,6 +195,9 @@ def show(board):
     for idj,j in enumerate(i):
       position=(cellsize*idj,cellsize*idi)
       if j: screen.blit(eval(j),position)
+
+  if reverse==1: screen.blit(pygame.transform.rotate(screen, 180), (0, 0))
+  pygame.display.flip()
   
 #Main loop
 if debug and run: print "Entering main loop\n---"
@@ -213,49 +224,45 @@ while run:
         piece=board[coords[1]][coords[0]]
         piececolour=['b','w',''].index(piece.split('_')[0])
 
-        #TO-DO this if is horrible
         # Decides if the player can click in something when AIs are involved
-        if 1: #Temporarily disabled, no issues if AI is fast
-        #if not (((aiwhite and piececolour==1) or (aiblack and piececolour==0)) and not selected):
-           #or ((aiblack and not turn) or (aiwhite and turn)):
           
-          #Piece was already selected and valid destination is clicked
-          if selected and coords in valid_coords:
-            if debug: print 'moving '+piece+' to '+str(coords)
-            move.movepiece(board,origin,coords)
-            last=[origin,coords]
-            next=1
-            resetmove()
+        #Piece was already selected and valid destination is clicked
+        if selected and coords in valid_coords:
+          if debug: print 'moving '+piece+' to '+str(coords)
+          move.movepiece(board,origin,coords)
+          last=[origin,coords]
+          next=1
+          resetmove()
 
-          #A piece of the proper colour is clicked
-          elif piece and piececolour==turn:
-            if debug: print "clicked "+piece+" at "+str(coords)
-            selected=[coords[0]*cellsize,coords[1]*cellsize]
-            origin=coords
-            valid_coords=analysis.possible_moves(board,coords)
-            moves=[[i*cellsize for i in j] for j in valid_coords]
-            next=0
-          
-          #Black san spawning
-          elif coords[1]==5 and not turn and all([not i for i in analysis.homerow(board,"b")]):
-            move.spawnsan(board,coords,"b")
-            next=1
-            last=[coords]
-            resetmove()
-          #White san spawning
-          elif coords[1]==0 and turn and all([not i for i in analysis.homerow(board,"w")]):
-            move.spawnsan(board,coords,"w")
-            next=1
-            last=[coords]
-            resetmove()
+        #A piece of the proper colour is clicked
+        elif piece and piececolour==turn:
+          if debug: print "clicked "+piece+" at "+str(coords)
+          selected=[coords[0]*cellsize,coords[1]*cellsize]
+          origin=coords
+          valid_coords=analysis.possible_moves(board,coords)
+          moves=[[i*cellsize for i in j] for j in valid_coords]
+          next=0
+        
+        #Black san spawning
+        elif coords[1]==5 and not turn and all([not i for i in analysis.homerow(board,"b")]):
+          move.spawnsan(board,coords,"b")
+          next=1
+          last=[coords]
+          resetmove()
+        #White san spawning
+        elif coords[1]==0 and turn and all([not i for i in analysis.homerow(board,"w")]):
+          move.spawnsan(board,coords,"w")
+          next=1
+          last=[coords]
+          resetmove()
 
-          else:
-            resetmove()
-            next=0
+        else:
+          resetmove()
+          next=0
 
-        #show board again after input
-        show(board)
-        if (aiblack or aiwhite) and next: screen.blit(img_thinking,(2.5*cellsize,2.5*cellsize))
+      #show board again after input, show thinking icon if the AI is next
+      show(board)
+      if (aiblack or aiwhite) and next: screen.blit(img_thinking,(2.5*cellsize,2.5*cellsize))
   
   #AI movement
   if not turn and aiblack and analysis.checkgame(board)==0:
@@ -310,7 +317,7 @@ while run:
 
   #Screen and clock update
   if showboard:
-    pygame.display.flip()
+    show(board)
     ms=clock.tick(30)
   
   #sleep if the match is AI vs AI
