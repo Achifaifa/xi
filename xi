@@ -18,10 +18,7 @@ selected=""
 moves=[]
 origin=[]
 valid_coords=[]
-last=[]
 bestcolour=(250,186,218,128)
-turn=0
-next=0
 cellsize=size/6
 history=[]
 archive_directory="./games"
@@ -52,8 +49,7 @@ try:
 
       -d      debug (prints events to stdout)
       -r      record (Records list of moves to file)
-      -f      replays game recorded on file [TO-DO]
-
+      -f      replays game recorded on file
 
       ---Network play---
 
@@ -142,7 +138,6 @@ if net==1:
 elif net:
   if debug: print "Connecting to server at %s..."%net
   c=network.connection(net)
-  
 if debug: print "Connection established"
   
 #Pygame stuff
@@ -159,19 +154,10 @@ if debug: print "  [OK]"
 if showboard:
   if debug: print "Loading resources...",
   for i in os.listdir('img'):
-    if "w_" in i or "b_" in i:
-      name=i.replace('.png','')
-      imgsize=",(%i,%i))"%(cellsize,cellsize)
-      exec(name+'=pygame.image.load("img/'+i+'").convert_alpha()')
-      exec(name+'=pygame.transform.scale('+name+imgsize)
-  img_thinking=pygame.image.load("img/thinking.png")
-  img_thinking=pygame.transform.scale(img_thinking, (cellsize,cellsize))
-  img_blackwins=pygame.image.load("img/blackwins.png")
-  img_blackwins=pygame.transform.scale(img_blackwins, (cellsize*2,cellsize*2))
-  img_whitewins=pygame.image.load("img/whitewins.png")
-  img_whitewins=pygame.transform.scale(img_whitewins, (cellsize*2,cellsize*2))
-  img_clock=pygame.image.load("img/clock.png")
-  img_clock=pygame.transform.scale(img_clock, (cellsize,cellsize))
+    name=i.replace('.png','')
+    imgsize=",(%i,%i))"%(cellsize,cellsize)
+    exec(name+'=pygame.image.load("img/'+i+'").convert_alpha()')
+    exec(name+'=pygame.transform.scale('+name+imgsize)
 
 
   #Board background and auxiliary graphics
@@ -195,11 +181,15 @@ lineup=["aon","khoyor","ska","ska","khoyor","aon"]
 def initialize_board():
   global board
   board=[["w_"+z for z in lineup]]+[['' for i in range(6)] for j in range(4)]+[["b_"+z for z in lineup]]
-initialize_board()
 
+initialize_board()
 if debug: print "  [OK]"
 
 #misc functions
+def turn():
+
+  return len(history)%2
+
 def resetmove():
   "Resets move state variables"
 
@@ -216,8 +206,8 @@ def show(board):
   screen.blit(bg,(0,0))
 
   #Highlight previous move
-  if last:
-    for q in last:
+  if history:
+    for q in history[-1]:
       screen.blit(mov,[i*cellsize for i in q])
 
   #Piece and possible moves
@@ -234,10 +224,14 @@ def show(board):
 
   if reverse==1: screen.blit(pygame.transform.rotate(screen, 180), (0, 0))
 
+  #Feedback images
   if analysis.checkgame(board)==1:
     screen.blit(img_blackwins,(cellsize*2,cellsize*2))
   elif analysis.checkgame(board)==-1:
     screen.blit(img_whitewins,(cellsize*2,cellsize*2))
+  if ((aiblack and not turn()) or (aiwhite and turn())) and analysis.checkgame(board)==0 \
+               and not (aiblack and aiwhite): 
+    screen.blit(img_thinking,(2.5*cellsize,2.5*cellsize))
 
   pygame.display.flip()
 
@@ -247,17 +241,13 @@ if replay:
   with open("%s/%s"%(archive_directory,replay_file), "r") as f:
     for i in f.readlines():
       i=ast.literal_eval(i)
-      cc=["b","w"][turn]
-      
+      cc=["b","w"][turn()]
       show(board)
       board=move.move(board,i,cc)
-      last=i
-      turn=not turn
+      history.append(i)
       ms=clock.tick(30)
       pygame.time.wait(pause)
   exit(0)
-
-
 
 #Main loop
 if debug and run: print "Entering main loop\n---"
@@ -277,10 +267,9 @@ while run:
           run=0
 
       #Mouse click handling
-
       player_enabled=not ((aiblack and net==1) or (aiwhite and type(net)==str))\
                 and not (aiblack and aiwhite) \
-                and not ((net==1 and turn) or (type(net)==str and not turn))
+                and not ((net==1 and turn()) or (type(net)==str and not turn()))
 
       if ev.type==pygame.MOUSEBUTTONDOWN and analysis.checkgame(board)==0 and player_enabled:
 
@@ -288,103 +277,79 @@ while run:
         coords=[i/cellsize for i in mousepos]
         piece=board[coords[1]][coords[0]]
         piececolour=['b','w',''].index(piece.split('_')[0])
+        reset=1
           
         #Piece was already selected and valid destination is clicked
         if selected and coords in valid_coords:
           if debug: print 'moving to '+str(coords)
           move.movepiece(board,origin,coords)
-          last=[origin,coords]
-          next=1
+          history.append([origin,coords])
           if debug: print "Sending move to network"
-          if net: c.send(last)
-          history.append(last)
-          resetmove()
-
+          if net: c.send(history[-1])
+          
         #A piece of the proper colour is clicked
-        elif piece and piececolour==turn:
+        elif piece and piececolour==turn():
           if debug: print "clicked "+piece+" at "+str(coords)
           selected=[coords[0]*cellsize,coords[1]*cellsize]
           origin=coords
           valid_coords=analysis.possible_moves(board,coords)
           moves=[[i*cellsize for i in j] for j in valid_coords]
-          next=0
+          reset=0
         
         #Black san spawning
-        elif coords[1]==5 and not turn and all([not i for i in analysis.homerow(board,"b")]):
+        elif coords[1]==5 and not turn() and all([not i for i in analysis.homerow(board,"b")]):
           move.spawnsan(board,coords,"b")
-          next=1
-          last=[coords]
-          history.append(last)
-          resetmove()
+          history.append([coords])
         #White san spawning
-        elif coords[1]==0 and turn and all([not i for i in analysis.homerow(board,"w")]):
+        elif coords[1]==0 and turn() and all([not i for i in analysis.homerow(board,"w")]):
           move.spawnsan(board,coords,"w")
-          next=1
-          last=[coords]
-          history.append(last)
+          history.append([coords])
+
+        if reset:
           resetmove()
 
-        else:
-          resetmove()
-          next=0
-
-      #show board again after input, show thinking icon if the AI is next
       show(board)
-      if (aiblack or aiwhite) and next: screen.blit(img_thinking,(2.5*cellsize,2.5*cellsize))
 
   if analysis.checkgame(board)==0:
 
-    #Network movement
-    if net==1 and turn:
-      screen.blit(img_clock,(2.5*cellsize,2.5*cellsize))
-      pygame.display.flip()
-      if debug: print "Waiting for white move over network"
-      wmove=c.receive()
-      if debug: print "Received move:",wmove
-      board=move.move(board,wmove,"w")
-      last=wmove
-      history.append(last)
-      next=1
+    if not turn():
+      if type(net)==str:
+        screen.blit(img_waiting,(2.5*cellsize,2.5*cellsize))
+        pygame.display.flip()
+        if debug: print "Waiting for black move over network"
+        bmove=c.receive()
+        if debug: print "Received move:", bmove
+        board=move.move(board,bmove,"b")
+        history.append(bmove)
+      if aiblack:
+        if debug: print "Black AI calculating move"
+        bmove=aiblack.move(copy.copy(board))
+        board=move.move(board,bmove,"b")
+        movesleft-=1
+        history.append(bmove)
+        if net: c.send(history[-1])
 
-    elif type(net)==str and not turn:
-      screen.blit(img_clock,(2.5*cellsize,2.5*cellsize))
-      pygame.display.flip()
-      if debug: print "Waiting for black move over network"
-      bmove=c.receive()
-      if debug: print "Received move:", bmove
-      board=move.move(board,bmove,"b")
-      last=bmove
-      history.append(last)
-      next=1
-    
-    #AI movement
-    if not turn and aiblack:
-      if debug: print "Black AI calculating move"
-      bmove=aiblack.move(copy.copy(board))
-      board=move.move(board,bmove,"b")
-      movesleft-=1
-      last=bmove
-      history.append(last)
-      next=1
-      if net: c.send(last)
-
-    if turn and aiwhite:
-      if debug: print "White AI calculating move"
-      wmove=aiwhite.move(copy.copy(board))
-      board=move.move(board,wmove,"w")
-      movesleft-=1
-      last=wmove
-      history.append(last)
-      next=1
-      if net: c.send(last)
-  
-    if next: 
-      turn=not turn
-      next=0
+    if turn():
+      if net==1:
+        screen.blit(img_waiting,(2.5*cellsize,2.5*cellsize))
+        pygame.display.flip()
+        if debug: print "Waiting for white move over network"
+        wmove=c.receive()
+        if debug: print "Received move:",wmove
+        board=move.move(board,wmove,"w")
+        history.append(wmove)
+      if aiwhite:
+        if debug: print "White AI calculating move"
+        wmove=aiwhite.move(copy.copy(board))
+        board=move.move(board,wmove,"w")
+        movesleft-=1
+        history.append(wmove)
+        if net: c.send(history[-1])
 
   #Victory check
   cg=analysis.checkgame(board)
 
+  #Record gamet o file
   if cg and record:
     date=datetime.datetime.now().isoformat().split(".")[0]
     bp=aiblack.name if aiblack else "network" if type(net)==str else "human"
@@ -394,6 +359,7 @@ while run:
         f.write(str(i)+"\n")
     record=0
 
+  #AI match cycling
   if cg and aiblack and aiwhite:
     matchesdiff=(matches-matchesleft)%2
     if cg==1:
