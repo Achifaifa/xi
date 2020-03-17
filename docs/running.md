@@ -1,10 +1,15 @@
 # Running xi
 
-The following modes are supported
+## Dependencies
+
+ * Python
+ * Pygame
+
+## Supported game modes
 
 ### Human vs Human
 
-Simply launch `xi`  and play using the mouse. Touchscreens may or may not be supported.
+Launch `xi` and play using the mouse. Touchscreens may or may not be supported.
 
 ### Human vs AI
 
@@ -16,12 +21,16 @@ For example, `./xi -b headless`. In this case, the AI will move first and will w
 
 Similar to human VS human, but selecting AIs for both sides (e.g. `xi -b headless -w headless`)
 
-Some extra options are available in this mode:
+Some extra options are available in this mode (See 'options and parameters' below)
 
-* -n: number of matches (e.g. -n 100). The two AIs will play one match, swap colours, play another match and so on until all the matches have been played. At the end, a count of victories on each side will be displayed. If this is not specified it'll default to 1 and will show the moves on a board.
-* -p: pause after each AI move in ms (e.g. -p 50). Makes displayed AI vs AI matches easier to see. This option is ignored if -n is 1 or if it's not specified.
-* -l: limit number of moves. If the match has not been decided after this many moves, it's declared a draw.
+### Network play
 
-### Other tools
+To play over a network, use the `-s` option (to create a server) or the `-c <ip>` option (to connect to a server). 
 
-* use -d to display debug information
+The server will play as black and the client will play as white. Bots are compatible with this mode to be able to play against other bots without having to swap code, dependencies, etc. 
+
+For example, `./xi -b headless -s` will create a server that plays automatically using the headless AI.
+
+## Options and parameters
+
+* use --help to display a full list
