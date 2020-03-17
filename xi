@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import copy, datetime, getopt, os, sys
+import ast, copy, datetime, getopt, os, sys
 from lib import analysis, move, network
 
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT']="hide"
@@ -82,6 +82,7 @@ try:
       record=1
     if "-f" in i:
       replay=1
+      replay_file=val
 
     #AI options
     ai=0
@@ -239,6 +240,23 @@ def show(board):
     screen.blit(img_whitewins,(cellsize*2,cellsize*2))
 
   pygame.display.flip()
+
+#Replay loop
+if replay:
+  if debug: print "Replaying game %s"%replay_file
+  with open("%s/%s"%(archive_directory,replay_file), "r") as f:
+    for i in f.readlines():
+      i=ast.literal_eval(i)
+      cc=["b","w"][turn]
+      
+      show(board)
+      board=move.move(board,i,cc)
+      last=i
+      turn=not turn
+      ms=clock.tick(30)
+      pygame.time.wait(pause)
+  exit(0)
+
 
 
 #Main loop
