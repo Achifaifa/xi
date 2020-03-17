@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import copy, getopt, os, sys
+import copy, datetime, getopt, os, sys
 from lib import analysis, move, network
 
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT']="hide"
@@ -23,8 +23,14 @@ bestcolour=(250,186,218,128)
 turn=0
 next=0
 cellsize=size/6
+history=[]
+archive_directory="./games"
+
+#option latching
 reverse=0
 net=0
+record=0
+replay=0
 
 #AI match config
 aiblack=""
@@ -45,7 +51,7 @@ try:
       ---General options---
 
       -d      debug (prints events to stdout)
-      -r      record (Records list of moves to file) [TO-DO]
+      -r      record (Records list of moves to file)
       -f      replays game recorded on file [TO-DO]
 
 
@@ -63,15 +69,19 @@ try:
 
       -n      number of matches (default 1)
               If n>1, board is not shown
-      -p      pause between moves (ms, default 0)
+      -p      pause between moves (ms, default 1)
       -l      max allowed moves in a match (default 1000)
-      -t      places black on top instead of bottom (Doesn't work with player inputs)
+      -t      places black on top instead of bottom ([TO-DO] Doesn't work with player inputs)
       """
       sys.exit(0)
       
     #General options
     if "-t" in i:
       reverse=1
+    if "-r" in i:
+      record=1
+    if "-f" in i:
+      replay=1
 
     #AI options
     ai=0
@@ -269,6 +279,7 @@ while run:
           next=1
           if debug: print "Sending move to network"
           if net: c.send(last)
+          history.append(last)
           resetmove()
 
         #A piece of the proper colour is clicked
@@ -285,12 +296,14 @@ while run:
           move.spawnsan(board,coords,"b")
           next=1
           last=[coords]
+          history.append(last)
           resetmove()
         #White san spawning
         elif coords[1]==0 and turn and all([not i for i in analysis.homerow(board,"w")]):
           move.spawnsan(board,coords,"w")
           next=1
           last=[coords]
+          history.append(last)
           resetmove()
 
         else:
@@ -312,6 +325,7 @@ while run:
       if debug: print "Received move:",wmove
       board=move.move(board,wmove,"w")
       last=wmove
+      history.append(last)
       next=1
 
     elif type(net)==str and not turn:
@@ -322,6 +336,7 @@ while run:
       if debug: print "Received move:", bmove
       board=move.move(board,bmove,"b")
       last=bmove
+      history.append(last)
       next=1
     
     #AI movement
@@ -331,6 +346,7 @@ while run:
       board=move.move(board,bmove,"b")
       movesleft-=1
       last=bmove
+      history.append(last)
       next=1
       if net: c.send(last)
 
@@ -340,6 +356,7 @@ while run:
       board=move.move(board,wmove,"w")
       movesleft-=1
       last=wmove
+      history.append(last)
       next=1
       if net: c.send(last)
   
@@ -349,7 +366,17 @@ while run:
 
   #Victory check
   cg=analysis.checkgame(board)
-  if cg!=0 and aiblack and aiwhite:
+
+  if cg and record:
+    date=datetime.datetime.now().isoformat().split(".")[0]
+    bp=aiblack.name if aiblack else "network" if type(net)==str else "human"
+    wp=aiwhite.name if aiwhite else "network" if net==1 else "human"
+    with open('%s/xi_%s_%s_%s'%(archive_directory,date,bp,wp),'w+') as f:
+      for i in history:
+        f.write(str(i)+"\n")
+    record=0
+
+  if cg and aiblack and aiwhite:
     matchesdiff=(matches-matchesleft)%2
     if cg==1:
       if debug: print "(%i/%i): %s wins"%(matches-matchesleft+1, matches, aiblack.name)
@@ -373,7 +400,6 @@ while run:
       else: 
         aia=aiblack.name
         aib=aiwhite.name
-
         scorea=score.count(aia)
         scoreb=score.count(aib)
         print "%s %i | Ties %i | %s %i"%(aia,scorea,score.count("t"),aib,scoreb)
@@ -389,4 +415,3 @@ while run:
 
 if net: c.closeconn()
 pygame.quit()
-
