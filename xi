@@ -387,6 +387,6 @@ while run:
   #sleep if the match is AI vs AI
   if aiblack and aiwhite and showboard: pygame.time.wait(pause)
 
-c.closeconn()
+if net: c.closeconn()
 pygame.quit()
 
